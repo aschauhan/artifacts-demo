@@ -1,23 +1,11 @@
 # This file contains ONLY the resources for VPC Endpoints and a corresponding Security Group.
 # All references to other modules (vpc, subnets, route_tables, etc.) have been removed.
 
-# --- Data Lookups and Filtering for Subnets ---
-# FIX: Subnet filtering to ensure only one subnet per Availability Zone is used,
-# resolving the AWS API error "DuplicateSubnetsInSameZone" and the Terraform error "Duplicate object key".
-data "aws_subnet" "interface_subnets" {
-  for_each = toset(var.interface_subnet_ids)
-  id       = each.key
-}
-
-locals {
-  # FIX: Use the grouping syntax (=> value...) to collect all subnet IDs per AZ.
-  az_to_subnet_groups = { for s in data.aws_subnet.interface_subnets : s.availability_zone => s.id... }
-
-  # Now, extract the first subnet ID from each list, resulting in a clean, filtered list
-  # where there is exactly one subnet ID per unique AZ.
-  unique_interface_subnet_ids = [for az, ids in local.az_to_subnet_groups : ids[0]]
-}
-# ---------------------------------------------
+# --- Input Constraint Note ---
+# IMPORTANT: The list provided to 'var.interface_subnet_ids' MUST contain only one subnet ID 
+# per Availability Zone to avoid the AWS API error 'DuplicateSubnetsInSameZone'. 
+# The dynamic filtering logic was removed as it failed during the Terraform plan phase.
+# -----------------------------
 
 
 #
@@ -68,15 +56,15 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 
 #
 # 2. Interface Endpoints (EC2 and SSM/Messaging) - Using SEPARATE RESOURCES and a dependency chain
-# The subnets are now filtered above using the 'unique_interface_subnet_ids' local.
+# The subnet list is now expected to be correctly pre-filtered by the calling module.
 
 resource "aws_vpc_endpoint" "ec2_endpoint" {
   vpc_id            = var.vpc_id
   service_name      = "com.amazonaws.${var.region}.ec2"
   vpc_endpoint_type = "Interface"
 
-  # Use the filtered subnet list
-  subnet_ids             = local.unique_interface_subnet_ids 
+  # Using the input variable directly (must be filtered outside this module)
+  subnet_ids             = var.interface_subnet_ids 
   security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
   private_dns_enabled    = true
 
@@ -90,8 +78,8 @@ resource "aws_vpc_endpoint" "ssm_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ssm"
   vpc_endpoint_type = "Interface"
 
-  # Use the filtered subnet list
-  subnet_ids             = local.unique_interface_subnet_ids 
+  # Using the input variable directly (must be filtered outside this module)
+  subnet_ids             = var.interface_subnet_ids 
   security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
   private_dns_enabled    = true
   
@@ -108,8 +96,8 @@ resource "aws_vpc_endpoint" "ssmmessages_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ssmmessages"
   vpc_endpoint_type = "Interface"
 
-  # Use the filtered subnet list
-  subnet_ids             = local.unique_interface_subnet_ids 
+  # Using the input variable directly (must be filtered outside this module)
+  subnet_ids             = var.interface_subnet_ids 
   security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
   private_dns_enabled    = true
 
@@ -126,8 +114,8 @@ resource "aws_vpc_endpoint" "ec2messages_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ec2messages"
   vpc_endpoint_type = "Interface"
 
-  # Use the filtered subnet list
-  subnet_ids             = local.unique_interface_subnet_ids 
+  # Using the input variable directly (must be filtered outside this module)
+  subnet_ids             = var.interface_subnet_ids 
   security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
   private_dns_enabled    = true
 
