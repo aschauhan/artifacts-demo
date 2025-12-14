@@ -94,7 +94,7 @@ variable "vpc_endpoints_interface_endpoints_policy" {
 variable "vpc_endpoints_default_private_dns_enabled" {
   description = "Whether to associate a private hosted zone for Interface Endpoints."
   type        = bool
-  default     = true
+  default     = null 
 }
 
 variable "vpc_endpoints_interface_service_region" {
