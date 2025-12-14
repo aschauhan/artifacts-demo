@@ -1,3 +1,7 @@
+# -----------------------------------------------------------
+# 1. TERRAFORM & PROVIDER CONFIGURATION
+# -----------------------------------------------------------
+
 terraform {
   required_version = ">= 1.3.0"
 
@@ -14,8 +18,6 @@ provider "aws" {
 }
 
 # Data lookup to retrieve the Availability Zone for all combined subnets.
-# FIX: Reverting to the singular 'aws_subnet' data source and using 'count'
-# to reliably access subnet details and bypass the 'for_each' plan-time dependency error.
 data "aws_subnet" "all_interface_subnets" {
   # Use count to iterate over the dynamic list of subnet IDs
   count = length(local.interface_endpoint_subnet_ids) 
@@ -67,6 +69,9 @@ module "vpc" {
   
 }
 
+# -------------------------------------------------------------
+# 1. Public Subnets Module Call
+# -------------------------------------------------------------
 module "public_subnets" {
   source = "../../../modules/subnets"
 
@@ -78,8 +83,25 @@ module "public_subnets" {
   environment        = var.environment
   tags               = local.base_tags
   depends_on = [module.vpc]
+  
+  # --- New Optional Arguments Mapping ---
+  availability_zone_ids                        = var.subnet_availability_zone_ids # ADDED
+  ipv6_cidr_blocks                             = var.public_subnet_ipv6_cidrs
+  assign_ipv6_address_on_creation              = var.subnet_assign_ipv6_address_on_creation
+  customer_owned_ipv4_pool                     = var.subnet_customer_owned_ipv4_pool
+  enable_dns64                                 = var.subnet_enable_dns64
+  enable_lni_at_device_index                   = var.subnet_enable_lni_at_device_index
+  enable_resource_name_dns_aaaa_record_on_launch = var.subnet_enable_resource_name_dns_aaaa_record_on_launch
+  enable_resource_name_dns_a_record_on_launch    = var.subnet_enable_resource_name_dns_a_record_on_launch
+  ipv6_native                                  = var.subnet_ipv6_native
+  map_customer_owned_ip_on_launch              = var.subnet_map_customer_owned_ip_on_launch
+  outpost_arn                                  = var.subnet_outpost_arn
+  private_dns_hostname_type_on_launch          = var.subnet_private_dns_hostname_type_on_launch
 }
 
+# -------------------------------------------------------------
+# 2. Private Subnets Module Call
+# -------------------------------------------------------------
 module "private_subnets" {
   source = "../../../modules/subnets"
 
@@ -91,8 +113,25 @@ module "private_subnets" {
   environment        = var.environment
   tags               = local.base_tags
   depends_on = [module.vpc]
+
+  # --- New Optional Arguments Mapping ---
+  availability_zone_ids                        = var.subnet_availability_zone_ids # ADDED
+  ipv6_cidr_blocks                             = var.private_subnet_ipv6_cidrs
+  assign_ipv6_address_on_creation              = var.subnet_assign_ipv6_address_on_creation
+  customer_owned_ipv4_pool                     = var.subnet_customer_owned_ipv4_pool
+  enable_dns64                                 = var.subnet_enable_dns64
+  enable_lni_at_device_index                   = var.subnet_enable_lni_at_device_index
+  enable_resource_name_dns_aaaa_record_on_launch = var.subnet_enable_resource_name_dns_aaaa_record_on_launch
+  enable_resource_name_dns_a_record_on_launch    = var.subnet_enable_resource_name_dns_a_record_on_launch
+  ipv6_native                                  = var.subnet_ipv6_native
+  map_customer_owned_ip_on_launch              = var.subnet_map_customer_owned_ip_on_launch
+  outpost_arn                                  = var.subnet_outpost_arn
+  private_dns_hostname_type_on_launch          = var.subnet_private_dns_hostname_type_on_launch
 }
 
+# -------------------------------------------------------------
+# 3. Non-Routable Subnets Module Call
+# -------------------------------------------------------------
 module "non_routable_subnets" {
   source = "../../../modules/subnets"
 
@@ -104,6 +143,20 @@ module "non_routable_subnets" {
   environment        = var.environment
   tags               = local.base_tags
   depends_on = [module.vpc]
+
+  # --- New Optional Arguments Mapping ---
+  availability_zone_ids                        = var.subnet_availability_zone_ids # ADDED
+  ipv6_cidr_blocks                             = var.nonroutable_subnet_ipv6_cidrs
+  assign_ipv6_address_on_creation              = var.subnet_assign_ipv6_address_on_creation
+  customer_owned_ipv4_pool                     = var.subnet_customer_owned_ipv4_pool
+  enable_dns64                                 = var.subnet_enable_dns64
+  enable_lni_at_device_index                   = var.subnet_enable_lni_at_device_index
+  enable_resource_name_dns_aaaa_record_on_launch = var.subnet_enable_resource_name_dns_aaaa_record_on_launch
+  enable_resource_name_dns_a_record_on_launch    = var.subnet_enable_resource_name_dns_a_record_on_launch
+  ipv6_native                                  = var.subnet_ipv6_native
+  map_customer_owned_ip_on_launch              = var.subnet_map_customer_owned_ip_on_launch
+  outpost_arn                                  = var.subnet_outpost_arn
+  private_dns_hostname_type_on_launch          = var.subnet_private_dns_hostname_type_on_launch
 }
 
 module "gateways" {
@@ -127,17 +180,17 @@ module "gateways" {
 module "route_tables" {
   source = "../../../modules/route-tables"
 
-  vpc_id                    = module.vpc.vpc_id
-  igw_id                    = module.gateways.igw_id
-  nat_gateway_ids           = module.gateways.nat_gateway_ids
-  public_subnet_ids         = module.public_subnets.subnet_ids
-  private_subnet_ids        = module.private_subnets.subnet_ids
-  public_subnet_count       = length(var.public_subnet_cidrs)
-  private_subnet_count      = length(var.private_subnet_cidrs)
+  vpc_id                      = module.vpc.vpc_id
+  igw_id                      = module.gateways.igw_id
+  nat_gateway_ids             = module.gateways.nat_gateway_ids
+  public_subnet_ids           = module.public_subnets.subnet_ids
+  private_subnet_ids          = module.private_subnets.subnet_ids
+  public_subnet_count         = length(var.public_subnet_cidrs)
+  private_subnet_count        = length(var.private_subnet_cidrs)
 
-  non_routable_subnet_ids   = module.non_routable_subnets.subnet_ids
-  non_routable_subnet_count = length(var.nonroutable_subnet_cidrs)
-  private_nat_gateway_ids   = module.gateways.private_nat_gateway_ids
+  non_routable_subnet_ids     = module.non_routable_subnets.subnet_ids
+  non_routable_subnet_count   = length(var.nonroutable_subnet_cidrs)
+  private_nat_gateway_ids     = module.gateways.private_nat_gateway_ids
 
   environment = var.environment
   tags        = local.base_tags
@@ -230,25 +283,25 @@ module "nacls" {
 module "vpc_endpoints" {
   source = "../../../modules/vpc-endpoints" # Assuming the module is placed here
 
-  vpc_id                    = module.vpc.vpc_id
-  vpc_cidr_block            = var.vpc_cidr # Pass the VPC CIDR for SG rules
-  region                    = var.region
-  environment               = var.environment
-  tags                      = local.base_tags
+  vpc_id                      = module.vpc.vpc_id
+  vpc_cidr_block              = var.vpc_cidr # Pass the VPC CIDR for SG rules
+  region                      = var.region
+  environment                 = var.environment
+  tags                        = local.base_tags
   
   # List of private and non-routable route table IDs for S3 Gateway
-  private_route_table_ids   = local.combined_route_table_ids
+  private_route_table_ids     = local.combined_route_table_ids
   
   # PASS THE FILTERED LIST to ensure only one subnet per AZ is used
-  interface_subnet_ids      = local.filtered_interface_subnet_ids
+  interface_subnet_ids        = local.filtered_interface_subnet_ids
 
   # --- New Optional Arguments Passed from Root Variables ---
-  auto_accept_endpoints     = var.vpc_endpoints_auto_accept
-  ip_address_type           = var.vpc_endpoints_ip_address_type
-  s3_gateway_policy         = var.vpc_endpoints_s3_gateway_policy
-  interface_endpoints_policy = var.vpc_endpoints_interface_endpoints_policy
+  auto_accept_endpoints       = var.vpc_endpoints_auto_accept
+  ip_address_type             = var.vpc_endpoints_ip_address_type
+  s3_gateway_policy           = var.vpc_endpoints_s3_gateway_policy
+  interface_endpoints_policy  = var.vpc_endpoints_interface_endpoints_policy
   default_private_dns_enabled = var.vpc_endpoints_default_private_dns_enabled
-  interface_service_region  = var.vpc_endpoints_interface_service_region
+  interface_service_region    = var.vpc_endpoints_interface_service_region
   interface_dns_record_ip_type = var.vpc_endpoints_interface_dns_record_ip_type
   interface_private_dns_only_for_inbound_resolver_endpoint = var.vpc_endpoints_interface_private_dns_only_for_inbound_resolver_endpoint
 

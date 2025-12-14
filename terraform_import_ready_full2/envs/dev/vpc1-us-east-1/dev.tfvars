@@ -134,3 +134,34 @@ nacl_config = [
 
 
 ############ END NACL ######## 
+
+
+
+## Added for Subnet Module Testing ##
+
+subnet_enable_resource_name_dns_a_record_on_launch = true
+
+/* This variable enables DNS64 resolution for instances in all subnets.*/
+
+#subnet_enable_dns64 = true
+
+/*-------------------------------------------------------------------
+
+--- Added VPC Endpoints Optional Variables (for completeness) ---
+
+-------------------------------------------------------------------
+
+Set to 'true' to test the auto-accept feature for Interface Endpoints*/
+
+vpc_endpoints_auto_accept = true
+
+/*Explicitly set the private DNS flag for testing/override*/
+
+vpc_endpoints_default_private_dns_enabled = true
+
+/*All other VPC Endpoint optional variables are commented out or set to null/default*/
+
+vpc_endpoints_ip_address_type = null
+
+vpc_endpoints_s3_gateway_policy = null
+
