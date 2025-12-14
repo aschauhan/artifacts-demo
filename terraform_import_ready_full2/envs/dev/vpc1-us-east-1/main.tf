@@ -50,16 +50,16 @@ module "vpc" {
   cidr_block                   = var.vpc_cidr
   additional_cidrs             = var.additional_cidrs
 
-  instance_tenancy                     = "default"
-  ipv4_ipam_pool_id                    = null
-  ipv4_netmask_length                  = null
-  ipv6_cidr_block                      = null
-  ipv6_ipam_pool_id                    = null
-  ipv6_netmask_length                  = null
+  instance_tenancy             = "default"
+  ipv4_ipam_pool_id            = null
+  ipv4_netmask_length          = null
+  ipv6_cidr_block              = null
+  ipv6_ipam_pool_id            = null
+  ipv6_netmask_length          = null
   ipv6_cidr_block_network_border_group = null
   assign_generated_ipv6_cidr_block     = false
-  enable_dns_support                   = true
-  enable_dns_hostnames                 = true
+  enable_dns_support           = true
+  enable_dns_hostnames         = true
   enable_network_address_usage_metrics = false
 
   environment = var.environment
@@ -152,11 +152,11 @@ module "dhcp_options" {
   environment = var.environment
   tags        = local.base_tags
 
-  domain_name          = "example.internal"
-  domain_name_servers  = ["AmazonProvidedDNS"]
-  ntp_servers          = []
-  netbios_name_servers = []
-  netbios_node_type    = null
+  domain_name           = "example.internal"
+  domain_name_servers   = ["AmazonProvidedDNS"]
+  ntp_servers           = []
+  netbios_name_servers  = []
+  netbios_node_type     = null
 }
 
 ########################################
@@ -230,17 +230,27 @@ module "nacls" {
 module "vpc_endpoints" {
   source = "../../../modules/vpc-endpoints" # Assuming the module is placed here
 
-  vpc_id                  = module.vpc.vpc_id
-  vpc_cidr_block          = var.vpc_cidr # Pass the VPC CIDR for SG rules
-  region                  = var.region
-  environment             = var.environment
-  tags                    = local.base_tags
+  vpc_id                    = module.vpc.vpc_id
+  vpc_cidr_block            = var.vpc_cidr # Pass the VPC CIDR for SG rules
+  region                    = var.region
+  environment               = var.environment
+  tags                      = local.base_tags
   
   # List of private and non-routable route table IDs for S3 Gateway
-  private_route_table_ids = local.combined_route_table_ids
+  private_route_table_ids   = local.combined_route_table_ids
   
   # PASS THE FILTERED LIST to ensure only one subnet per AZ is used
-  interface_subnet_ids    = local.filtered_interface_subnet_ids
+  interface_subnet_ids      = local.filtered_interface_subnet_ids
+
+  # --- New Optional Arguments Passed from Root Variables ---
+  auto_accept_endpoints     = var.vpc_endpoints_auto_accept
+  ip_address_type           = var.vpc_endpoints_ip_address_type
+  s3_gateway_policy         = var.vpc_endpoints_s3_gateway_policy
+  interface_endpoints_policy = var.vpc_endpoints_interface_endpoints_policy
+  default_private_dns_enabled = var.vpc_endpoints_default_private_dns_enabled
+  interface_service_region  = var.vpc_endpoints_interface_service_region
+  interface_dns_record_ip_type = var.vpc_endpoints_interface_dns_record_ip_type
+  interface_private_dns_only_for_inbound_resolver_endpoint = var.vpc_endpoints_interface_private_dns_only_for_inbound_resolver_endpoint
 
   # Endpoints depend on VPC, Subnets, and Route Tables
   depends_on = [

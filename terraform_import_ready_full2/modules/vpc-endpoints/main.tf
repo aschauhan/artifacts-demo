@@ -42,9 +42,14 @@ resource "aws_security_group" "interface_endpoints_sg" {
 # 1. S3 Gateway Endpoint
 #
 resource "aws_vpc_endpoint" "s3_gateway" {
-  vpc_id       = var.vpc_id
-  service_name = "com.amazonaws.${var.region}.s3"
+  vpc_id            = var.vpc_id
+  service_name      = "com.amazonaws.${var.region}.s3"
   vpc_endpoint_type = "Gateway"
+
+  # Optional Arguments
+  auto_accept     = var.auto_accept_endpoints
+  policy          = var.s3_gateway_policy
+  ip_address_type = var.ip_address_type
 
   # Crucial: Attaches the S3 Gateway to the Private and Non-Routable Route Tables only.
   route_table_ids = var.private_route_table_ids 
@@ -55,18 +60,41 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 }
 
 #
-# 2. Interface Endpoints (EC2 and SSM/Messaging) - Using SEPARATE RESOURCES and a dependency chain
-# The subnet list is now expected to be correctly pre-filtered by the calling module.
+# 2. Interface Endpoints (EC2 and SSM/Messaging) - Using SEPARATE RESOURCES
+#
+
+# Local for checking if dns_options should be included (for all interface endpoints)
+locals {
+  should_include_dns_options = (
+    var.interface_dns_record_ip_type != null ||
+    var.interface_private_dns_only_for_inbound_resolver_endpoint != null
+  )
+}
 
 resource "aws_vpc_endpoint" "ec2_endpoint" {
   vpc_id            = var.vpc_id
   service_name      = "com.amazonaws.${var.region}.ec2"
   vpc_endpoint_type = "Interface"
 
-  # Using the input variable directly (must be filtered outside this module)
-  subnet_ids             = var.interface_subnet_ids 
-  security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
-  private_dns_enabled    = true
+  # Required Interface Arguments
+  subnet_ids          = var.interface_subnet_ids 
+  security_group_ids  = [aws_security_group.interface_endpoints_sg.id]
+
+  # Optional Arguments
+  auto_accept         = var.auto_accept_endpoints
+  policy              = var.interface_endpoints_policy
+  ip_address_type     = var.ip_address_type
+  private_dns_enabled = var.default_private_dns_enabled
+  service_region      = var.interface_service_region
+
+  dynamic "dns_options" {
+    # Only include the block if any advanced DNS options are provided
+    for_each = local.should_include_dns_options ? [1] : []
+    content {
+      dns_record_ip_type                  = var.interface_dns_record_ip_type
+      private_dns_only_for_inbound_resolver_endpoint = var.interface_private_dns_only_for_inbound_resolver_endpoint
+    }
+  }
 
   tags = merge(var.tags, {
     Name = format("%s-ec2-interface-endpoint", var.environment)
@@ -78,11 +106,25 @@ resource "aws_vpc_endpoint" "ssm_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ssm"
   vpc_endpoint_type = "Interface"
 
-  # Using the input variable directly (must be filtered outside this module)
-  subnet_ids             = var.interface_subnet_ids 
-  security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
-  private_dns_enabled    = true
+  # Required Interface Arguments
+  subnet_ids          = var.interface_subnet_ids 
+  security_group_ids  = [aws_security_group.interface_endpoints_sg.id]
   
+  # Optional Arguments
+  auto_accept         = var.auto_accept_endpoints
+  policy              = var.interface_endpoints_policy
+  ip_address_type     = var.ip_address_type
+  private_dns_enabled = var.default_private_dns_enabled
+  service_region      = var.interface_service_region
+  
+  dynamic "dns_options" {
+    for_each = local.should_include_dns_options ? [1] : []
+    content {
+      dns_record_ip_type                  = var.interface_dns_record_ip_type
+      private_dns_only_for_inbound_resolver_endpoint = var.interface_private_dns_only_for_inbound_resolver_endpoint
+    }
+  }
+
   # Ensure SSM waits for EC2 to finish creating its ENIs
   depends_on = [aws_vpc_endpoint.ec2_endpoint]
 
@@ -96,10 +138,24 @@ resource "aws_vpc_endpoint" "ssmmessages_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ssmmessages"
   vpc_endpoint_type = "Interface"
 
-  # Using the input variable directly (must be filtered outside this module)
-  subnet_ids             = var.interface_subnet_ids 
-  security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
-  private_dns_enabled    = true
+  # Required Interface Arguments
+  subnet_ids          = var.interface_subnet_ids 
+  security_group_ids  = [aws_security_group.interface_endpoints_sg.id]
+  
+  # Optional Arguments
+  auto_accept         = var.auto_accept_endpoints
+  policy              = var.interface_endpoints_policy
+  ip_address_type     = var.ip_address_type
+  private_dns_enabled = var.default_private_dns_enabled
+  service_region      = var.interface_service_region
+
+  dynamic "dns_options" {
+    for_each = local.should_include_dns_options ? [1] : []
+    content {
+      dns_record_ip_type                  = var.interface_dns_record_ip_type
+      private_dns_only_for_inbound_resolver_endpoint = var.interface_private_dns_only_for_inbound_resolver_endpoint
+    }
+  }
 
   # Ensure SSMMessages waits for SSM to finish
   depends_on = [aws_vpc_endpoint.ssm_endpoint]
@@ -114,10 +170,24 @@ resource "aws_vpc_endpoint" "ec2messages_endpoint" {
   service_name      = "com.amazonaws.${var.region}.ec2messages"
   vpc_endpoint_type = "Interface"
 
-  # Using the input variable directly (must be filtered outside this module)
-  subnet_ids             = var.interface_subnet_ids 
-  security_group_ids     = [aws_security_group.interface_endpoints_sg.id]
-  private_dns_enabled    = true
+  # Required Interface Arguments
+  subnet_ids          = var.interface_subnet_ids 
+  security_group_ids  = [aws_security_group.interface_endpoints_sg.id]
+  
+  # Optional Arguments
+  auto_accept         = var.auto_accept_endpoints
+  policy              = var.interface_endpoints_policy
+  ip_address_type     = var.ip_address_type
+  private_dns_enabled = var.default_private_dns_enabled
+  service_region      = var.interface_service_region
+  
+  dynamic "dns_options" {
+    for_each = local.should_include_dns_options ? [1] : []
+    content {
+      dns_record_ip_type                  = var.interface_dns_record_ip_type
+      private_dns_only_for_inbound_resolver_endpoint = var.interface_private_dns_only_for_inbound_resolver_endpoint
+    }
+  }
 
   # Ensure EC2Messages waits for SSMMessages to finish
   depends_on = [aws_vpc_endpoint.ssmmessages_endpoint]
